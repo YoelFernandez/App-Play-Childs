@@ -49,6 +49,28 @@ function animalNameInPlural(animal) {
   return ANIMAL_NAMES_IN_PLURAL[animal.id];
 }
 
+const ACTION_ICONS = {
+  sound: `
+    <svg class="action-icon-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <path d="M8 24h13L36 11v42L21 40H8Z" fill="currentColor" />
+      <path d="M43 23c5 5 5 13 0 18M49 16c10 9 10 23 0 32" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+    </svg>`,
+  muted: `
+    <svg class="action-icon-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <path d="M8 24h13L36 11v42L21 40H8Z" fill="currentColor" />
+      <path d="m43 23 14 18M57 23 43 41" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+    </svg>`,
+  pause: `
+    <svg class="action-icon-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <rect x="14" y="10" width="14" height="44" rx="4" fill="currentColor" />
+      <rect x="36" y="10" width="14" height="44" rx="4" fill="currentColor" />
+    </svg>`,
+  puzzle: `
+    <svg class="action-icon-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <path d="M8 8h19v8a6 6 0 1 0 12 0V8h17v19h-8a6 6 0 1 0 0 12h8v17H39v-8a6 6 0 1 0-12 0v8H8V39h8a6 6 0 1 0 0-12H8Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round" />
+    </svg>`,
+};
+
 const animals = {
   elefante: {
     id: "elefante",
@@ -266,6 +288,11 @@ const animals = {
     image: `${INSUMOS}/3REPTILES Y ANFIBIOS/COCODRILO/cocodrilo.jpeg`,
     habitatImage: `${INSUMOS}/3REPTILES Y ANFIBIOS/COCODRILO/habitat.png`,
     audio: `${INSUMOS}/3REPTILES Y ANFIBIOS/COCODRILO/cocodrilo.mp3`,
+    narration: {
+      entry: `${INSUMOS}/3REPTILES Y ANFIBIOS/COCODRILO/audios_cocodrilo/01_nombre_y_descripcion.mp3`,
+      habitat: `${INSUMOS}/3REPTILES Y ANFIBIOS/COCODRILO/audios_cocodrilo/02_pregunta_y_respuesta_habitat.mp3`,
+      food: `${INSUMOS}/3REPTILES Y ANFIBIOS/COCODRILO/audios_cocodrilo/03_pregunta_y_respuesta_alimentacion.mp3`,
+    },
     intro: "El cocodrilo es grande, fuerte y nada muy bien. Puede esconder casi todo su cuerpo bajo el agua.",
     habitatText: "Los cocodrilos viven en ríos, lagos y pantanos de lugares cálidos.",
     foodText: "Los cocodrilos comen peces, aves, cangrejos, tortugas y otros animales.",
@@ -596,9 +623,12 @@ const modalPanel = document.querySelector("#modal-panel");
 const modalContent = document.querySelector("#modal-content");
 const toast = document.querySelector("#toast");
 const animalAudio = document.querySelector("#animal-audio");
+const narrationAudio = new Audio();
 const buttonSound = new Audio(`${INSUMOS}/sonidobotones.mp3`);
 const puzzleMusic = new Audio(`${INSUMOS}/musica de fondo.mp3`);
+const PUZZLE_INSTRUCTION_AUDIO = `${INSUMOS}/04_arma_el_rompecabezas.mp3`;
 
+narrationAudio.preload = "auto";
 buttonSound.preload = "auto";
 buttonSound.volume = 0.2;
 puzzleMusic.preload = "auto";
@@ -608,10 +638,7 @@ puzzleMusic.volume = 0.09;
 const storageKey = "mundo-animal-v1";
 const defaultProgress = {
   visited: [],
-  favorites: [],
   puzzles: [],
-  quizBest: 0,
-  effects: true,
 };
 
 let progress = loadProgress();
@@ -619,20 +646,17 @@ let activeAudioId = null;
 let toastTimer = null;
 let lastFocusedElement = null;
 let puzzleState = null;
-let quizState = null;
 let carouselIndex = 0;
 let pointerStartX = null;
 let pointerDragStarted = false;
 let puzzleCelebrationTimer = null;
+let narrationPlaybackId = 0;
 
 function loadProgress() {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey));
     return {
-      ...defaultProgress,
-      ...saved,
       visited: Array.isArray(saved?.visited) ? saved.visited : [],
-      favorites: Array.isArray(saved?.favorites) ? saved.favorites : [],
       puzzles: Array.isArray(saved?.puzzles) ? saved.puzzles : [],
     };
   } catch {
@@ -646,7 +670,6 @@ function saveProgress() {
   } catch {
     // La aplicación sigue funcionando aunque el almacenamiento esté bloqueado.
   }
-  updateHeaderControls();
 }
 
 function uniqueAdd(list, value) {
@@ -663,6 +686,40 @@ function pauseAnimalAudio() {
   animalAudio.currentTime = 0;
   activeAudioId = null;
   updateSoundButtons();
+}
+
+function stopNarration() {
+  narrationPlaybackId += 1;
+  narrationAudio.onended = null;
+  narrationAudio.pause();
+  narrationAudio.currentTime = 0;
+}
+
+function playNarrationSequence(sources) {
+  const queue = sources.filter(Boolean);
+  if (!queue.length) return;
+  stopNarration();
+  pauseAnimalAudio();
+  buttonSound.pause();
+  buttonSound.currentTime = 0;
+  const playbackId = narrationPlaybackId;
+  let index = 0;
+
+  const playNext = () => {
+    if (playbackId !== narrationPlaybackId || index >= queue.length) {
+      narrationAudio.onended = null;
+      return;
+    }
+    narrationAudio.src = queue[index];
+    narrationAudio.currentTime = 0;
+    index += 1;
+    narrationAudio.play().catch(() => {
+      narrationAudio.onended = null;
+    });
+  };
+
+  narrationAudio.onended = playNext;
+  playNext();
 }
 
 function stopPuzzleMusic() {
@@ -715,20 +772,6 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2600);
 }
 
-function updateHeaderControls() {
-  const effectsButton = document.querySelector("#toggle-effects");
-  const progressLabel = document.querySelector("#header-progress");
-  if (effectsButton) {
-    effectsButton.setAttribute("aria-pressed", String(progress.effects));
-    effectsButton.innerHTML = progress.effects
-      ? '<span aria-hidden="true">🔔</span><span>Efectos</span>'
-      : '<span aria-hidden="true">🔕</span><span>Silencio</span>';
-  }
-  if (progressLabel) {
-    progressLabel.textContent = `${progress.visited.length}/${Object.keys(animals).length}`;
-  }
-}
-
 function imageMarkup(animal, className = "") {
   return `<img class="${className}" src="${animal.image}" alt="${animal.name}" loading="lazy" />`;
 }
@@ -740,27 +783,6 @@ function focusPageHeading() {
     heading.tabIndex = -1;
     heading.focus({ preventScroll: true });
   });
-}
-
-function animalCard(animal) {
-  const visited = progress.visited.includes(animal.id);
-  const favorite = progress.favorites.includes(animal.id);
-  return `
-    <button class="animal-card ${visited ? "is-visited" : ""}" type="button" data-animal="${animal.id}">
-      <div class="animal-card-media">
-        ${imageMarkup(animal)}
-        <span class="card-badge is-ready">${visited ? "Descubierto" : "Descubrir"}</span>
-        ${favorite ? '<span class="favorite-badge" aria-label="Favorito">★</span>' : ""}
-      </div>
-      <div class="animal-card-body">
-        <div>
-          <h3>${animal.name}</h3>
-          <span>${animal.audio ? "Tiene sonido" : "Sonido pendiente"}</span>
-        </div>
-        <span class="animal-card-arrow" aria-hidden="true">→</span>
-      </div>
-    </button>
-  `;
 }
 
 function renderHome() {
@@ -935,142 +957,6 @@ function bindCarouselEvents() {
   });
 }
 
-function renderDashboardHome() {
-  document.body.className = "is-home";
-  document.title = "Mundo Animal · Aprende jugando";
-  const total = Object.keys(animals).length;
-  const favorites = progress.favorites.map((id) => animals[id]).filter(Boolean);
-
-  app.innerHTML = `
-    <section class="page-shell home-dashboard">
-      <section class="welcome-hero">
-        <div class="welcome-copy">
-          <p class="eyebrow">Una aventura para pequeños exploradores</p>
-          <h1>Descubre el <span>mundo animal</span></h1>
-          <p>Observa, escucha, juega y aprende con ${total} animales de seis ambientes diferentes.</p>
-          <div class="hero-actions">
-            <button class="primary-button" type="button" data-random-animal>
-              <span aria-hidden="true">✦</span> Sorpréndeme
-            </button>
-            <button class="secondary-button" type="button" data-start-quiz="all">
-              <span aria-hidden="true">?</span> Adivina el animal
-            </button>
-          </div>
-        </div>
-        <div class="progress-orb" aria-label="${progress.visited.length} de ${total} animales descubiertos">
-          <strong>${progress.visited.length}</strong>
-          <span>de ${total}</span>
-          <small>descubiertos</small>
-        </div>
-      </section>
-
-      <section class="explorer-tools" aria-labelledby="search-title">
-        <div>
-          <p class="eyebrow">Busca por su nombre</p>
-          <h2 id="search-title">¿A quién quieres conocer?</h2>
-        </div>
-        <label class="animal-search">
-          <span aria-hidden="true">⌕</span>
-          <span class="sr-only">Buscar un animal</span>
-          <input id="animal-search" type="search" placeholder="Escribe: tigre, rana, orca…" autocomplete="off" />
-        </label>
-        <div class="search-results" id="search-results" hidden></div>
-      </section>
-
-      <section class="home-section" aria-labelledby="categories-title">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Seis mundos para explorar</p>
-            <h2 id="categories-title">Elige una categoría</h2>
-          </div>
-        </div>
-        <div class="category-grid">
-          ${categories.map((category) => {
-            const discovered = category.animals.filter((id) => progress.visited.includes(id)).length;
-            return `
-              <button
-                class="category-card"
-                style="--category-color:${category.color}"
-                type="button"
-                data-category="${category.id}"
-              >
-                <span class="category-card-icon" aria-hidden="true">${category.icon}</span>
-                <span class="category-card-images" aria-hidden="true">
-                  <img src="${category.previews[0]}" alt="" loading="lazy" />
-                  <img src="${category.previews[1]}" alt="" loading="lazy" />
-                </span>
-                <span class="category-card-copy">
-                  <strong>${category.name}</strong>
-                </span>
-                <span class="category-card-arrow" aria-hidden="true">→</span>
-              </button>
-            `;
-          }).join("")}
-        </div>
-      </section>
-
-      ${favorites.length ? `
-        <section class="home-section" aria-labelledby="favorites-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Tu colección</p>
-              <h2 id="favorites-title">Animales favoritos</h2>
-            </div>
-          </div>
-          <div class="animal-grid compact-animal-grid">
-            ${favorites.map(animalCard).join("")}
-          </div>
-        </section>
-      ` : ""}
-    </section>
-  `;
-
-  app.querySelectorAll("[data-category]").forEach((button) => {
-    button.addEventListener("click", () => navigate(`#categoria/${button.dataset.category}`));
-  });
-  app.querySelectorAll("[data-animal]").forEach((button) => {
-    button.addEventListener("click", () => navigate(`#animal/${button.dataset.animal}`));
-  });
-  app.querySelector("[data-random-animal]").addEventListener("click", goToRandomAnimal);
-  app.querySelector("[data-start-quiz]").addEventListener("click", () => openQuizModal());
-
-  const input = app.querySelector("#animal-search");
-  const results = app.querySelector("#search-results");
-  input.addEventListener("input", () => renderSearchResults(input.value, results));
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      input.value = "";
-      renderSearchResults("", results);
-    }
-  });
-  focusPageHeading();
-}
-
-function renderSearchResults(value, container) {
-  const query = value.trim().toLocaleLowerCase("es");
-  if (!query) {
-    container.hidden = true;
-    container.innerHTML = "";
-    return;
-  }
-  const matches = Object.values(animals).filter((animal) =>
-    animal.name.toLocaleLowerCase("es").includes(query),
-  );
-  container.hidden = false;
-  container.innerHTML = matches.length
-    ? matches.slice(0, 8).map((animal) => `
-        <button type="button" data-animal="${animal.id}">
-          <img src="${animal.image}" alt="" />
-          <span><strong>${animal.name}</strong><small>${categoryById(animal.category).name}</small></span>
-          <span aria-hidden="true">→</span>
-        </button>
-      `).join("")
-    : '<p>No encontramos ese animal. Prueba con otro nombre.</p>';
-  container.querySelectorAll("[data-animal]").forEach((button) => {
-    button.addEventListener("click", () => navigate(`#animal/${button.dataset.animal}`));
-  });
-}
-
 function renderCategory(category) {
   document.body.className = "is-category";
   document.querySelector(".site-header").hidden = true;
@@ -1116,47 +1002,6 @@ function renderCategory(category) {
   focusPageHeading();
 }
 
-function renderExtendedCategory(category) {
-  document.body.className = "is-category";
-  document.title = `${category.name} · Mundo Animal`;
-  const categoryAnimals = category.animals.map((id) => animals[id]);
-  const discovered = category.animals.filter((id) => progress.visited.includes(id)).length;
-
-  app.innerHTML = `
-    <section class="page-shell">
-      <div class="category-hero-layout">
-        <button class="category-back-button" type="button" data-go-home aria-label="Volver al inicio">
-          <span class="back-arrow" aria-hidden="true"></span>
-        </button>
-        <header class="category-hero" style="--category-color:${category.color}">
-          <div class="category-hero-copy">
-            <p class="eyebrow">${category.icon} Colección para explorar</p>
-            <h1>${category.name}</h1>
-            <p>${category.description}</p>
-            <div class="category-meta">
-              <span>${discovered} descubiertos</span>
-              <button type="button" data-start-quiz="${category.id}">Jugar cuestionario</button>
-            </div>
-          </div>
-        </header>
-      </div>
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Toca una tarjeta</p>
-          <h2>¿A quién conoceremos?</h2>
-        </div>
-      </div>
-      <div class="animal-grid">${categoryAnimals.map(animalCard).join("")}</div>
-    </section>
-  `;
-  app.querySelector("[data-go-home]").addEventListener("click", () => navigate("#inicio"));
-  app.querySelector("[data-start-quiz]").addEventListener("click", () => openQuizModal(category.id));
-  app.querySelectorAll("[data-animal]").forEach((button) => {
-    button.addEventListener("click", () => navigate(`#animal/${button.dataset.animal}`));
-  });
-  focusPageHeading();
-}
-
 function renderAnimal(animal) {
   document.body.className = "is-animal";
   document.querySelector(".site-header").hidden = true;
@@ -1188,22 +1033,27 @@ function renderAnimal(animal) {
         <div class="detail-copy">
           <p class="detail-intro">${animal.intro}</p>
           <div class="fact-grid">
-            <button class="fact-card" type="button" data-action="habitat" aria-label="Ver dónde viven ${animalNameInPlural(animal)}">
-              <span class="fact-icon" aria-hidden="true">⌂</span>
-              <span><strong>¿Dónde viven ${animalNameInPlural(animal)}?</strong><small>Descubre su hábitat</small></span>
+            <button class="fact-card" type="button" data-action="habitat"
+              ${animal.narration ? "data-narration-click" : ""}
+              aria-label="Ver dónde viven ${animalNameInPlural(animal)}">
+              <strong>¿Dónde viven ${animalNameInPlural(animal)}?</strong>
             </button>
-            <button class="fact-card" type="button" data-action="food" aria-label="Ver qué comen ${animalNameInPlural(animal)}">
-              <span class="fact-icon" aria-hidden="true">●</span>
-              <span><strong>¿Qué comen ${animalNameInPlural(animal)}?</strong><small>Mira sus alimentos</small></span>
+            <button class="fact-card" type="button" data-action="food"
+              ${animal.narration ? "data-narration-click" : ""}
+              aria-label="Ver qué comen ${animalNameInPlural(animal)}">
+              <strong>¿Qué comen ${animalNameInPlural(animal)}?</strong>
             </button>
           </div>
-          <button class="sound-button" type="button" data-action="sound" data-animal="${animal.id}" aria-pressed="false" ${animal.audio ? "" : "disabled"}>
-            <span aria-hidden="true">♪</span>
-            ${animal.audio ? "Escuchar sonido" : "Sonido próximamente"}
-          </button>
-          <button class="primary-button puzzle-launch" type="button" data-action="puzzle">
-            <span aria-hidden="true">▦</span> Armar rompecabezas
-          </button>
+          <div class="animal-action-buttons">
+            <button class="sound-button icon-only-action" type="button" data-action="sound" data-animal="${animal.id}"
+              aria-label="${animal.audio ? `Escuchar el sonido de ${animal.name}` : `Sonido de ${animal.name} no disponible`}"
+              aria-pressed="false" ${animal.audio ? "" : "disabled"}>
+              <span class="action-icon" aria-hidden="true">${animal.audio ? ACTION_ICONS.sound : ACTION_ICONS.muted}</span>
+            </button>
+            <button class="primary-button puzzle-launch icon-only-action" type="button" data-action="puzzle" aria-label="Armar el rompecabezas de ${animal.name}">
+              <span class="action-icon" aria-hidden="true">${ACTION_ICONS.puzzle}</span>
+            </button>
+          </div>
         </div>
       </article>
     </section>
@@ -1215,123 +1065,14 @@ function renderAnimal(animal) {
   app.querySelector('[data-action="food"]').addEventListener("click", () => openFoodModal(animal));
   app.querySelector('[data-action="puzzle"]').addEventListener("click", () => openPuzzleModal(animal));
   app.querySelector('[data-action="sound"]').addEventListener("click", () => toggleAnimalSound(animal));
-  focusPageHeading();
-}
-
-function renderExtendedAnimal(animal) {
-  document.body.className = "is-animal";
-  document.title = `${animal.name} · Mundo Animal`;
-  const category = categoryById(animal.category);
-  progress.visited = uniqueAdd(progress.visited, animal.id);
-  saveProgress();
-  const isFavorite = progress.favorites.includes(animal.id);
-  const categoryIndex = category.animals.indexOf(animal.id);
-  const previous = animals[category.animals[(categoryIndex - 1 + category.animals.length) % category.animals.length]];
-  const next = animals[category.animals[(categoryIndex + 1) % category.animals.length]];
-
-  app.innerHTML = `
-    <section class="page-shell animal-page">
-      <div class="category-hero-layout">
-        <button class="category-back-button" type="button" data-back-category aria-label="Regresar a ${category.name}">
-          <span class="back-arrow" aria-hidden="true"></span>
-        </button>
-        <header class="category-hero" style="--category-color:${category.color}">
-          <div class="category-hero-copy">
-            <h1>${animal.name}</h1>
-          </div>
-        </header>
-        <button class="category-back-button category-home-button" type="button" data-go-home aria-label="Volver al inicio">
-          <span class="category-home-icon" aria-hidden="true">⌂</span>
-        </button>
-      </div>
-
-      <article class="detail-layout">
-        <button class="animal-portrait" type="button" data-image="${animal.image}" data-image-alt="${animal.name}">
-          <img src="${animal.image}" alt="${animal.name}, imagen principal" />
-          <span class="portrait-label"><strong>${animal.icon}</strong><span>Toca para ampliar</span></span>
-        </button>
-        <div class="detail-copy">
-          <div class="animal-chips">
-            <span>${category.icon} ${category.name}</span>
-            <span>🍽 ${animal.foods.length} alimentos</span>
-            <span>${animal.audio ? "♪ Con sonido" : "♪ Sonido pendiente"}</span>
-          </div>
-          <p class="detail-intro">${animal.intro}</p>
-          <div class="fact-grid">
-            <button class="fact-card" type="button" data-action="habitat">
-              <span class="fact-icon" aria-hidden="true">⌂</span>
-              <span><strong>¿Dónde viven ${animalNameInPlural(animal)}?</strong><small>Descubre su hábitat</small></span>
-            </button>
-            <button class="fact-card" type="button" data-action="food">
-              <span class="fact-icon" aria-hidden="true">●</span>
-              <span><strong>¿Qué comen ${animalNameInPlural(animal)}?</strong><small>Mira sus alimentos</small></span>
-            </button>
-          </div>
-          <div class="animal-actions">
-            <button class="sound-button" type="button" data-action="sound" data-animal="${animal.id}" aria-pressed="false" ${animal.audio ? "" : "disabled"}>
-              <span aria-hidden="true">♪</span> ${animal.audio ? "Escuchar sonido" : "Sonido próximamente"}
-            </button>
-            <button class="primary-button puzzle-launch" type="button" data-action="puzzle">
-              <span aria-hidden="true">▦</span> Armar rompecabezas
-            </button>
-            <button class="favorite-button ${isFavorite ? "is-favorite" : ""}" type="button" data-action="favorite" aria-pressed="${isFavorite}">
-              <span aria-hidden="true">${isFavorite ? "★" : "☆"}</span>
-              ${isFavorite ? "En mis favoritos" : "Guardar favorito"}
-            </button>
-          </div>
-        </div>
-      </article>
-
-      <nav class="animal-neighbors" aria-label="Otros animales de ${category.name}">
-        <button type="button" data-animal-neighbor="${previous.id}">
-          <span aria-hidden="true">←</span><img src="${previous.image}" alt="" /><span><small>Anterior</small><strong>${previous.name}</strong></span>
-        </button>
-        <button type="button" data-animal-neighbor="${next.id}">
-          <span><small>Siguiente</small><strong>${next.name}</strong></span><img src="${next.image}" alt="" /><span aria-hidden="true">→</span>
-        </button>
-      </nav>
-    </section>
-  `;
-
-  app.querySelector("[data-back-category]").addEventListener("click", () => navigate(`#categoria/${category.id}`));
-  app.querySelector("[data-go-home]").addEventListener("click", () => navigate("#inicio"));
-  app.querySelector('[data-action="habitat"]').addEventListener("click", () => openHabitatModal(animal));
-  app.querySelector('[data-action="food"]').addEventListener("click", () => openFoodModal(animal));
-  app.querySelector('[data-action="puzzle"]').addEventListener("click", () => openPuzzleModal(animal));
-  app.querySelector('[data-action="sound"]').addEventListener("click", () => toggleAnimalSound(animal));
-  app.querySelector('[data-action="favorite"]').addEventListener("click", () => toggleFavorite(animal));
-  app.querySelector("[data-image]").addEventListener("click", () => openImageModal(animal.image, animal.name));
-  app.querySelectorAll("[data-animal-neighbor]").forEach((button) => {
-    button.addEventListener("click", () => navigate(`#animal/${button.dataset.animalNeighbor}`));
-  });
+  if (animal.narration) {
+    playNarrationSequence([animal.narration.entry]);
+  }
   focusPageHeading();
 }
 
 function categoryById(id) {
   return categories.find((category) => category.id === id);
-}
-
-function goToRandomAnimal() {
-  const ids = Object.keys(animals);
-  const currentId = window.location.hash.startsWith("#animal/")
-    ? window.location.hash.split("/")[1]
-    : null;
-  const candidates = ids.filter((id) => id !== currentId);
-  navigate(`#animal/${candidates[Math.floor(Math.random() * candidates.length)]}`);
-}
-
-function toggleFavorite(animal) {
-  const isFavorite = progress.favorites.includes(animal.id);
-  progress.favorites = isFavorite
-    ? progress.favorites.filter((id) => id !== animal.id)
-    : [...progress.favorites, animal.id];
-  saveProgress();
-  const button = app.querySelector('[data-action="favorite"]');
-  const nowFavorite = !isFavorite;
-  button.classList.toggle("is-favorite", nowFavorite);
-  button.setAttribute("aria-pressed", String(nowFavorite));
-  button.innerHTML = `<span aria-hidden="true">${nowFavorite ? "★" : "☆"}</span> ${nowFavorite ? "En mis favoritos" : "Guardar favorito"}`;
-  showToast(nowFavorite ? `${animal.name} se guardó en favoritos.` : `${animal.name} salió de favoritos.`);
 }
 
 function toggleAnimalSound(animal) {
@@ -1354,17 +1095,22 @@ function toggleAnimalSound(animal) {
 function updateSoundButtons() {
   document.querySelectorAll('[data-action="sound"]').forEach((button) => {
     const playing = activeAudioId === button.dataset.animal && !animalAudio.paused;
+    const buttonAnimalName = animals[button.dataset.animal]?.name || "el animal";
     button.classList.toggle("is-playing", playing);
     button.setAttribute("aria-pressed", String(playing));
     if (!button.disabled) {
       button.innerHTML = playing
-        ? '<span aria-hidden="true">Ⅱ</span> Pausar sonido'
-        : '<span aria-hidden="true">♪</span> Escuchar sonido';
+        ? `<span class="action-icon" aria-hidden="true">${ACTION_ICONS.pause}</span>`
+        : `<span class="action-icon" aria-hidden="true">${ACTION_ICONS.sound}</span>`;
+      button.setAttribute("aria-label", playing
+        ? `Pausar el sonido de ${buttonAnimalName}`
+        : `Escuchar el sonido de ${buttonAnimalName}`);
     }
   });
 }
 
 function openModal(html, onReady) {
+  stopNarration();
   pauseAnimalAudio();
   lastFocusedElement = document.activeElement;
   modalContent.innerHTML = html;
@@ -1378,26 +1124,16 @@ function openModal(html, onReady) {
 }
 
 function closeModal() {
+  stopNarration();
   stopPuzzleMusic();
   clearPuzzleCelebration();
   modal.hidden = true;
   modalContent.innerHTML = "";
   document.body.classList.remove("modal-open");
   puzzleState = null;
-  quizState = null;
   if (lastFocusedElement instanceof HTMLElement && document.contains(lastFocusedElement)) {
     lastFocusedElement.focus();
   }
-}
-
-function openImageModal(src, alt) {
-  openModal(`
-    <div class="modal-header">
-      <p class="eyebrow">Vista ampliada</p>
-      <h2 id="modal-title">${alt}</h2>
-    </div>
-    <img class="zoomed-resource" src="${src}" alt="${alt}" />
-  `);
 }
 
 function openHabitatModal(animal) {
@@ -1410,6 +1146,9 @@ function openHabitatModal(animal) {
       <img class="habitat-image" src="${animal.habitatImage}" alt="Hábitat de ${animal.name}" />
     </div>
   `);
+  if (animal.narration) {
+    playNarrationSequence([animal.narration.habitat]);
+  }
 }
 
 function openFoodModal(animal) {
@@ -1421,286 +1160,16 @@ function openFoodModal(animal) {
       </div>
       <div class="food-grid">
         ${animal.foods.map((food) => `
-          <button class="food-card" type="button" data-food-image="${food.image}" data-food-name="${food.name}">
+          <article class="food-card">
             <img src="${food.image}" alt="${food.name}, alimento de ${animal.name}" loading="lazy" />
             <strong>${food.name}</strong>
-          </button>
+          </article>
         `).join("")}
       </div>
     </div>
-  `, () => {
-    modalContent.querySelectorAll("[data-food-image]").forEach((button) => {
-      button.addEventListener("click", () => openImageModal(button.dataset.foodImage, button.dataset.foodName));
-    });
-  });
-}
-
-function shuffle(values) {
-  const result = [...values];
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const random = Math.floor(Math.random() * (index + 1));
-    [result[index], result[random]] = [result[random], result[index]];
-  }
-  return result;
-}
-
-function openQuizModal(categoryId = null) {
-  const pool = categoryId
-    ? categoryById(categoryId).animals.map((id) => animals[id])
-    : Object.values(animals);
-  quizState = { pool, round: 0, score: 0, total: Math.min(5, pool.length), answered: false };
-  openModal('<div class="quiz-shell" id="quiz-shell"></div>', renderQuizQuestion);
-}
-
-function renderQuizQuestion() {
-  if (!quizState) return;
-  if (quizState.round >= quizState.total) {
-    progress.quizBest = Math.max(progress.quizBest, quizState.score);
-    saveProgress();
-    modalContent.innerHTML = `
-      <div class="quiz-finish">
-        <span aria-hidden="true">🏆</span>
-        <h2 id="modal-title">¡Juego terminado!</h2>
-        <p>Acertaste <strong>${quizState.score}</strong> de <strong>${quizState.total}</strong>.</p>
-        <div>
-          <button class="primary-button" type="button" data-quiz-again>Jugar otra vez</button>
-          <button class="secondary-button" type="button" data-close-modal>Regresar</button>
-        </div>
-      </div>
-    `;
-    modalContent.querySelector("[data-quiz-again]").addEventListener("click", () => {
-      quizState.round = 0;
-      quizState.score = 0;
-      quizState.answered = false;
-      renderQuizQuestion();
-    });
-    return;
-  }
-
-  const answer = shuffle(quizState.pool)[0];
-  const distractors = shuffle(Object.values(animals).filter((animal) => animal.id !== answer.id)).slice(0, 2);
-  quizState.answer = answer;
-  quizState.answered = false;
-  const options = shuffle([answer, ...distractors]);
-  modalContent.innerHTML = `
-    <div class="quiz-shell">
-      <div class="quiz-topline">
-        <span>Pregunta ${quizState.round + 1} de ${quizState.total}</span>
-        <span>${quizState.score} aciertos</span>
-      </div>
-      <div class="modal-header">
-        <h2 id="modal-title">¿Qué animal es?</h2>
-        <p>Mira con atención y elige su nombre.</p>
-      </div>
-      <img class="quiz-image" src="${answer.image}" alt="Animal para adivinar" />
-      <div class="quiz-options">
-        ${options.map((animal) => `<button type="button" data-quiz-answer="${animal.id}">${animal.name}</button>`).join("")}
-      </div>
-      <p class="quiz-feedback" id="quiz-feedback" aria-live="polite"></p>
-    </div>
-  `;
-  modalContent.querySelectorAll("[data-quiz-answer]").forEach((button) => {
-    button.addEventListener("click", () => answerQuiz(button));
-  });
-}
-
-function answerQuiz(button) {
-  if (!quizState || quizState.answered) return;
-  quizState.answered = true;
-  const correct = button.dataset.quizAnswer === quizState.answer.id;
-  if (correct) quizState.score += 1;
-  modalContent.querySelectorAll("[data-quiz-answer]").forEach((option) => {
-    option.disabled = true;
-    if (option.dataset.quizAnswer === quizState.answer.id) option.classList.add("is-correct");
-    else if (option === button) option.classList.add("is-wrong");
-  });
-  const feedback = modalContent.querySelector("#quiz-feedback");
-  feedback.innerHTML = correct
-    ? `¡Muy bien! Es ${quizState.answer.name}. <span aria-hidden="true">★</span>`
-    : `Era ${quizState.answer.name}. ¡Seguimos aprendiendo!`;
-  const next = document.createElement("button");
-  next.type = "button";
-  next.className = "primary-button quiz-next";
-  next.textContent = quizState.round + 1 === quizState.total ? "Ver resultado" : "Siguiente pregunta";
-  next.addEventListener("click", () => {
-    quizState.round += 1;
-    renderQuizQuestion();
-  });
-  feedback.after(next);
-}
-
-function openSimplePuzzleModal(animal) {
-  puzzleState = {
-    animal,
-    tray: shuffle([0, 1, 2, 3]),
-    board: [null, null, null, null],
-    selectedIndex: null,
-    selectedBoardIndex: null,
-    complete: false,
-  };
-  openModal(`
-    <div class="puzzle-shell">
-      <div class="modal-header">
-        <p class="eyebrow">Juego de cuatro piezas</p>
-        <h2 id="modal-title">Arma a ${animal.name}</h2>
-        <p>Arrastra una pieza o tócala y luego elige su espacio. También puedes intercambiar piezas del tablero.</p>
-      </div>
-      <div class="puzzle-workspace">
-        <section class="puzzle-zone puzzle-tray-zone">
-          <h3>Piezas</h3>
-          <div class="puzzle-tray" id="puzzle-tray"></div>
-        </section>
-        <section class="puzzle-zone puzzle-board-zone">
-          <h3>Tablero</h3>
-          <div class="puzzle-board-wrap"><div class="puzzle-board" id="puzzle-board"></div></div>
-        </section>
-      </div>
-      <p class="puzzle-message" id="puzzle-message" aria-live="polite"></p>
-      <div class="puzzle-actions">
-        <button class="secondary-button" type="button" data-puzzle-reset>↻ Mezclar</button>
-        <button class="primary-button" type="button" data-close-modal>Cerrar juego</button>
-      </div>
-    </div>
-  `, () => {
-    renderPuzzle();
-    modalContent.querySelector("[data-puzzle-reset]").addEventListener("click", resetSimplePuzzle);
-    if (progress.effects) puzzleMusic.play().catch(() => {});
-  });
-}
-
-function puzzlePieceMarkup(piece, trayIndex) {
-  const selected = puzzleState.selectedIndex === trayIndex;
-  return `
-    <button class="puzzle-piece ${selected ? "is-selected" : ""}" type="button" draggable="true" data-tray-index="${trayIndex}" aria-pressed="${selected}">
-      <img class="puzzle-fragment puzzle-fragment-${piece}" src="${puzzleState.animal.image}" alt="" />
-      <span class="slot-number">${piece + 1}</span>
-    </button>
-  `;
-}
-
-function renderPuzzle() {
-  if (!puzzleState) return;
-  const tray = modalContent.querySelector("#puzzle-tray");
-  const board = modalContent.querySelector("#puzzle-board");
-  tray.innerHTML = puzzleState.tray.length
-    ? puzzleState.tray.map(puzzlePieceMarkup).join("")
-    : '<p class="tray-empty">¡Todas las piezas están en el tablero!</p>';
-  board.innerHTML = puzzleState.complete
-    ? `<img class="puzzle-complete-image" src="${puzzleState.animal.image}" alt="Rompecabezas completo de ${puzzleState.animal.name}" />`
-    : puzzleState.board.map((piece, index) => `
-        <button class="puzzle-slot ${puzzleState.selectedBoardIndex === index ? "is-selected" : ""}" type="button" data-slot-index="${index}" aria-label="Espacio ${index + 1}" ${piece === null ? "" : 'draggable="true"'}>
-          ${piece === null
-            ? `<span class="slot-guide"></span><span class="slot-number">${index + 1}</span>`
-            : `<span class="placed-puzzle-piece"><img class="puzzle-fragment puzzle-fragment-${piece}" src="${puzzleState.animal.image}" alt="" /></span>`}
-        </button>
-      `).join("");
-  tray.querySelectorAll("[data-tray-index]").forEach((button) => {
-    button.addEventListener("click", () => {
-      puzzleState.selectedIndex = Number(button.dataset.trayIndex);
-      puzzleState.selectedBoardIndex = null;
-      renderPuzzle();
-    });
-    button.addEventListener("dragstart", (event) => {
-      puzzleState.selectedIndex = Number(button.dataset.trayIndex);
-      puzzleState.selectedBoardIndex = null;
-      event.dataTransfer.setData("text/plain", `tray:${button.dataset.trayIndex}`);
-      event.dataTransfer.effectAllowed = "move";
-    });
-  });
-  board.querySelectorAll("[data-slot-index]").forEach((button) => {
-    button.addEventListener("click", () => placePuzzlePiece(Number(button.dataset.slotIndex)));
-    button.addEventListener("dragstart", (event) => {
-      const slotIndex = Number(button.dataset.slotIndex);
-      if (puzzleState.board[slotIndex] === null) {
-        event.preventDefault();
-        return;
-      }
-      puzzleState.selectedIndex = null;
-      puzzleState.selectedBoardIndex = slotIndex;
-      event.dataTransfer.setData("text/plain", `board:${slotIndex}`);
-      event.dataTransfer.effectAllowed = "move";
-    });
-    button.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-    });
-    button.addEventListener("drop", (event) => {
-      event.preventDefault();
-      placePuzzlePiece(Number(button.dataset.slotIndex));
-    });
-  });
-}
-
-function placePuzzlePiece(slotIndex) {
-  if (!puzzleState) return;
-  const message = modalContent.querySelector("#puzzle-message");
-  if (puzzleState.selectedIndex === null && puzzleState.selectedBoardIndex === null) {
-    if (puzzleState.board[slotIndex] === null) {
-      showToast("Primero elige una pieza.");
-      return;
-    }
-    puzzleState.selectedBoardIndex = slotIndex;
-    message.textContent = "Ahora toca otro espacio para mover o intercambiar la pieza.";
-    renderPuzzle();
-    return;
-  }
-
-  if (puzzleState.selectedBoardIndex !== null) {
-    const originIndex = puzzleState.selectedBoardIndex;
-    if (originIndex === slotIndex) {
-      puzzleState.selectedBoardIndex = null;
-      message.textContent = "Pieza desmarcada.";
-      renderPuzzle();
-      return;
-    }
-    [puzzleState.board[originIndex], puzzleState.board[slotIndex]] = [
-      puzzleState.board[slotIndex],
-      puzzleState.board[originIndex],
-    ];
-    puzzleState.selectedBoardIndex = null;
-    puzzleState.complete = puzzleState.board.every((value, index) => value === index);
-    if (puzzleState.complete) {
-      finishPuzzle();
-    } else {
-      message.textContent = "¡Piezas intercambiadas! Sigue probando.";
-    }
-    renderPuzzle();
-    return;
-  }
-
-  const [piece] = puzzleState.tray.splice(puzzleState.selectedIndex, 1);
-  const displaced = puzzleState.board[slotIndex];
-  puzzleState.board[slotIndex] = piece;
-  if (displaced !== null) puzzleState.tray.push(displaced);
-  puzzleState.selectedIndex = null;
-  puzzleState.complete = puzzleState.board.every((value, index) => value === index);
-  if (puzzleState.complete) {
-    finishPuzzle();
-  } else {
-    message.textContent = piece === slotIndex ? "¡Esa pieza está en su lugar!" : "Sigue probando.";
-  }
-  renderPuzzle();
-}
-
-function finishPuzzle() {
-  stopPuzzleMusic();
-  progress.puzzles = uniqueAdd(progress.puzzles, puzzleState.animal.id);
-  saveProgress();
-  modalContent.querySelector("#puzzle-message").textContent = "¡Lo lograste! Completaste el rompecabezas.";
-  showToast("¡Rompecabezas completado!");
-}
-
-function resetSimplePuzzle() {
-  if (!puzzleState) return;
-  puzzleState.tray = shuffle([0, 1, 2, 3]);
-  puzzleState.board = [null, null, null, null];
-  puzzleState.selectedIndex = null;
-  puzzleState.selectedBoardIndex = null;
-  puzzleState.complete = false;
-  renderPuzzle();
-  if (progress.effects) {
-    puzzleMusic.currentTime = 0;
-    puzzleMusic.play().catch(() => {});
+  `);
+  if (animal.narration) {
+    playNarrationSequence([animal.narration.food]);
   }
 }
 
@@ -1761,6 +1230,7 @@ function openPuzzleModal(animal) {
     </div>
   `, bindPuzzleEvents);
   startPuzzleMusic();
+  playNarrationSequence([PUZZLE_INSTRUCTION_AUDIO]);
 }
 
 function renderPuzzleBoard() {
@@ -1999,7 +1469,6 @@ function renderRoute() {
     renderHome();
   }
   window.scrollTo({ top: 0, behavior: "smooth" });
-  updateHeaderControls();
 }
 
 document.querySelector("#brand-home").addEventListener("click", () => navigate("#inicio"));
@@ -2007,7 +1476,7 @@ document.querySelector("#header-home").addEventListener("click", () => navigate(
 
 document.addEventListener("click", (event) => {
   const button = event.target.closest("button");
-  if (!button || button.disabled || button.matches('[data-action="sound"]')) return;
+  if (!button || button.disabled || button.matches('[data-action="sound"], [data-action="puzzle"]') || button.hasAttribute("data-narration-click")) return;
   playButtonSound();
 });
 
@@ -2046,6 +1515,7 @@ animalAudio.addEventListener("ended", () => {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    stopNarration();
     pauseAnimalAudio();
     puzzleMusic.pause();
   } else if (puzzleState && !puzzleState.complete && !modal.hidden) {
