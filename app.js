@@ -79,6 +79,46 @@ const ACTION_ICONS = {
     </svg>`,
 };
 
+const AUDIO_CONTROL_ICONS = {
+  stop: `
+    <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <rect x="14" y="14" width="36" height="36" rx="7" fill="currentColor" />
+    </svg>`,
+  replay: `
+    <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <path d="M16 19V8L5 19l11 11V19c17-7 34 5 32 22-1 9-8 16-17 18" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="m27 25 16 10-16 10Z" fill="currentColor" />
+    </svg>`,
+  volumeDown: `
+    <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <path d="M8 25h11l14-12v38L19 39H8Z" fill="currentColor" />
+      <path d="M41 25c5 4 5 10 0 14" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+      <path d="M44 52h15" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" />
+    </svg>`,
+  volumeUp: `
+    <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <path d="M6 25h10l13-12v38L16 39H6Z" fill="currentColor" />
+      <path d="M37 24c5 5 5 11 0 16M44 18c9 8 9 20 0 28" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+      <path d="M51 47v12M45 53h12" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+    </svg>`,
+};
+
+function audioControlsMarkup(placement = "navigation") {
+  return `
+    <div class="audio-control-bar ${placement}-audio-controls" role="group" aria-label="Controles de audio">
+      <button class="audio-control-button audio-playback-button" type="button" data-audio-control="toggle-playback" aria-label="Detener todos los sonidos" title="Detener">
+        ${AUDIO_CONTROL_ICONS.stop}
+      </button>
+      <button class="audio-control-button audio-volume-down-button" type="button" data-audio-control="volume-down" aria-label="Bajar el volumen" title="Bajar volumen">
+        ${AUDIO_CONTROL_ICONS.volumeDown}
+      </button>
+      <button class="audio-control-button audio-volume-up-button" type="button" data-audio-control="volume-up" aria-label="Subir el volumen" title="Subir volumen">
+        ${AUDIO_CONTROL_ICONS.volumeUp}
+      </button>
+    </div>
+  `;
+}
+
 const animals = {
   elefante: {
     id: "elefante",
@@ -159,7 +199,7 @@ const animals = {
     habitatImage: `${INSUMOS}/1ANIMALES TERRESTRES/MONO/habitat.png`,
     audio: `${INSUMOS}/1ANIMALES TERRESTRES/MONO/mono.mp3`,
     narration: makeNarration(`${INSUMOS}/1ANIMALES TERRESTRES/MONO`),
-    intro: "El mono es curioso y juguetón. Usa sus manos y su cola para moverse entre las ramas.",
+    intro: "El mono es curioso y juguetón. Utiliza sus manos y su cola para moverse entre las ramas.",
     habitatText: "Los monos viven en selvas y bosques cálidos, entre muchos árboles.",
     foodText: "Los monos comen plátanos, papayas, mangos, insectos y hojas.",
     foods: makeFoods(
@@ -653,21 +693,28 @@ const app = document.querySelector("#app");
 const modal = document.querySelector("#modal");
 const modalPanel = document.querySelector("#modal-panel");
 const modalContent = document.querySelector("#modal-content");
+const modalAudioToolbar = document.querySelector("#modal-audio-toolbar");
 const toast = document.querySelector("#toast");
 const animalAudio = document.querySelector("#animal-audio");
 const narrationAudio = new Audio();
 const buttonSound = new Audio(`${INSUMOS}/sonidobotones.mp3`);
 const puzzleMusic = new Audio(`${INSUMOS}/musica de fondo.mp3`);
+const puzzleWinSound = new Audio(`${INSUMOS}/sonidowin.mp3`);
 const PUZZLE_INSTRUCTION_AUDIO = `${INSUMOS}/04_arma_el_rompecabezas.mp3`;
 
 narrationAudio.preload = "auto";
 buttonSound.preload = "auto";
 buttonSound.volume = 0.2;
+buttonSound.load();
 puzzleMusic.preload = "auto";
 puzzleMusic.loop = true;
 puzzleMusic.volume = 0.09;
+puzzleWinSound.preload = "auto";
+puzzleWinSound.volume = 0.8;
 
 const storageKey = "mundo-animal-v1";
+const audioVolumeStorageKey = "mundo-animal-volume-v1";
+const AUDIO_VOLUME_STEP = 0.1;
 const defaultProgress = {
   visited: [],
   puzzles: [],
@@ -683,6 +730,9 @@ let pointerStartX = null;
 let pointerDragStarted = false;
 let puzzleCelebrationTimer = null;
 let narrationPlaybackId = 0;
+let masterVolume = loadMasterVolume();
+let lastAudioRequest = null;
+let soundInteractionUnlocked = false;
 
 function loadProgress() {
   try {
@@ -708,6 +758,115 @@ function uniqueAdd(list, value) {
   return list.includes(value) ? list : [...list, value];
 }
 
+function loadMasterVolume() {
+  try {
+    const storedVolume = localStorage.getItem(audioVolumeStorageKey);
+    if (storedVolume === null) return 1;
+    const savedVolume = Number(storedVolume);
+    return Number.isFinite(savedVolume) && savedVolume >= 0 && savedVolume <= 1
+      ? savedVolume
+      : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function applyMasterVolume() {
+  narrationAudio.volume = masterVolume;
+  animalAudio.volume = masterVolume;
+  buttonSound.volume = 0.2 * masterVolume;
+  puzzleMusic.volume = 0.09 * masterVolume;
+  puzzleWinSound.volume = 0.8 * masterVolume;
+}
+
+function anyManagedAudioIsPlaying() {
+  return [narrationAudio, animalAudio, buttonSound, puzzleMusic, puzzleWinSound]
+    .some((audio) => !audio.paused && !audio.ended);
+}
+
+function updateGlobalAudioControls() {
+  const volumePercent = Math.round(masterVolume * 100);
+  const isPlaying = anyManagedAudioIsPlaying();
+  document.querySelectorAll(".audio-control-bar").forEach((controls) => {
+    controls.style.setProperty("--audio-volume-level", masterVolume);
+    controls.dataset.volume = String(volumePercent);
+  });
+  document.querySelectorAll('[data-audio-control="toggle-playback"]').forEach((button) => {
+    const label = isPlaying ? "Detener todos los sonidos" : "Escuchar otra vez";
+    button.disabled = !isPlaying && !lastAudioRequest;
+    button.classList.toggle("is-replay", !isPlaying);
+    button.innerHTML = isPlaying ? AUDIO_CONTROL_ICONS.stop : AUDIO_CONTROL_ICONS.replay;
+    button.setAttribute("aria-label", label);
+    button.title = isPlaying ? "Detener" : "Escuchar otra vez";
+  });
+  document.querySelectorAll('[data-audio-control="volume-down"]').forEach((button) => {
+    button.disabled = masterVolume <= 0;
+    button.setAttribute("aria-label", `Bajar el volumen. Volumen actual ${volumePercent} por ciento`);
+  });
+  document.querySelectorAll('[data-audio-control="volume-up"]').forEach((button) => {
+    button.disabled = masterVolume >= 1;
+    button.setAttribute("aria-label", `Subir el volumen. Volumen actual ${volumePercent} por ciento`);
+  });
+}
+
+function setMasterVolume(nextVolume) {
+  masterVolume = Math.round(Math.min(1, Math.max(0, nextVolume)) * 10) / 10;
+  applyMasterVolume();
+  try {
+    localStorage.setItem(audioVolumeStorageKey, String(masterVolume));
+  } catch {
+    // El control sigue funcionando aunque el almacenamiento esté bloqueado.
+  }
+  updateGlobalAudioControls();
+  showToast(masterVolume === 0 ? "Sonido apagado" : `Volumen ${Math.round(masterVolume * 100)}%`);
+}
+
+function stopAllAudio() {
+  stopNarration();
+  pauseAnimalAudio();
+  buttonSound.pause();
+  buttonSound.currentTime = 0;
+  stopPuzzleMusic();
+  stopPuzzleWinSound();
+  updateGlobalAudioControls();
+}
+
+function replayLastAudio() {
+  if (!lastAudioRequest) {
+    showToast("Todavía no hay un audio para repetir.");
+    return;
+  }
+  if (lastAudioRequest.type === "narration") {
+    if (puzzleState && !puzzleState.complete) startPuzzleMusic();
+    playNarrationSequence(lastAudioRequest.sources, false);
+    return;
+  }
+
+  stopNarration();
+  pauseAnimalAudio();
+  animalAudio.src = lastAudioRequest.src;
+  animalAudio.currentTime = 0;
+  activeAudioId = lastAudioRequest.animalId;
+  animalAudio.play().then(() => {
+    updateSoundButtons();
+    updateGlobalAudioControls();
+  }).catch(() => {
+    activeAudioId = null;
+    updateSoundButtons();
+    updateGlobalAudioControls();
+    showToast("No pudimos reproducir este sonido.");
+  });
+}
+
+function handleAudioControl(action) {
+  if (action === "toggle-playback") {
+    if (anyManagedAudioIsPlaying()) stopAllAudio();
+    else replayLastAudio();
+  }
+  else if (action === "volume-down") setMasterVolume(masterVolume - AUDIO_VOLUME_STEP);
+  else if (action === "volume-up") setMasterVolume(masterVolume + AUDIO_VOLUME_STEP);
+}
+
 function navigate(hash) {
   if (window.location.hash === hash) renderRoute();
   else window.location.hash = hash;
@@ -718,6 +877,7 @@ function pauseAnimalAudio() {
   animalAudio.currentTime = 0;
   activeAudioId = null;
   updateSoundButtons();
+  updateGlobalAudioControls();
 }
 
 function stopNarration() {
@@ -725,11 +885,13 @@ function stopNarration() {
   narrationAudio.onended = null;
   narrationAudio.pause();
   narrationAudio.currentTime = 0;
+  updateGlobalAudioControls();
 }
 
-function playNarrationSequence(sources) {
+function playNarrationSequence(sources, remember = true) {
   const queue = sources.filter(Boolean);
   if (!queue.length) return;
+  if (remember) lastAudioRequest = { type: "narration", sources: [...queue] };
   stopNarration();
   pauseAnimalAudio();
   buttonSound.pause();
@@ -740,13 +902,15 @@ function playNarrationSequence(sources) {
   const playNext = () => {
     if (playbackId !== narrationPlaybackId || index >= queue.length) {
       narrationAudio.onended = null;
+      updateGlobalAudioControls();
       return;
     }
     narrationAudio.src = queue[index];
     narrationAudio.currentTime = 0;
     index += 1;
-    narrationAudio.play().catch(() => {
+    narrationAudio.play().then(updateGlobalAudioControls).catch(() => {
       narrationAudio.onended = null;
+      updateGlobalAudioControls();
     });
   };
 
@@ -763,6 +927,16 @@ function startPuzzleMusic() {
   if (!puzzleState || puzzleState.complete || document.hidden) return;
   puzzleMusic.currentTime = 0;
   puzzleMusic.play().catch(() => {});
+}
+
+function stopPuzzleWinSound() {
+  puzzleWinSound.pause();
+  puzzleWinSound.currentTime = 0;
+}
+
+function playPuzzleWinSound() {
+  puzzleWinSound.currentTime = 0;
+  puzzleWinSound.play().catch(() => {});
 }
 
 function clearPuzzleCelebration() {
@@ -833,6 +1007,13 @@ function renderHome() {
           aria-roledescription="carrusel"
           aria-label="Categorías de animales"
         >
+          ${soundInteractionUnlocked ? "" : `
+            <div class="sound-start-overlay">
+              <button class="sound-start-button" type="button" data-enable-sound>
+                <strong>¡Empezar!</strong>
+              </button>
+            </div>
+          `}
           <div class="orbit-items" id="orbit-items"></div>
           <article class="focus-card" id="focus-card"></article>
           <div class="carousel-controls">
@@ -874,6 +1055,12 @@ function renderHome() {
 
   updateCarousel();
   bindCarouselEvents();
+  app.querySelector("[data-enable-sound]")?.addEventListener("click", (event) => {
+    soundInteractionUnlocked = true;
+    playButtonSound();
+    event.currentTarget.closest(".sound-start-overlay")?.remove();
+    app.querySelector("#category-carousel")?.focus({ preventScroll: true });
+  });
   focusPageHeading();
 }
 
@@ -952,10 +1139,13 @@ function bindCarouselEvents() {
   carousel.addEventListener("wheel", (event) => {
     if (Math.abs(event.deltaX) < 8 && Math.abs(event.deltaY) < 8) return;
     event.preventDefault();
+    if (!soundInteractionUnlocked) return;
+    playButtonSound();
     setCarouselIndex(carouselIndex + (event.deltaY > 0 || event.deltaX > 0 ? 1 : -1));
   }, { passive: false });
 
   carousel.addEventListener("pointerdown", (event) => {
+    if (!soundInteractionUnlocked) return;
     if (!event.isPrimary || event.button !== 0) return;
     pointerStartX = event.clientX;
     pointerDragStarted = false;
@@ -975,6 +1165,7 @@ function bindCarouselEvents() {
     const distance = event.clientX - pointerStartX;
     pointerStartX = null;
     if (pointerDragStarted && Math.abs(distance) >= 45) {
+      playButtonSound();
       setCarouselIndex(carouselIndex + (distance < 0 ? 1 : -1));
     }
     pointerDragStarted = false;
@@ -1018,7 +1209,11 @@ function renderCategory(category) {
             </div>
             <div class="animal-card-body">
               <h3>${animal.name}</h3>
-              <span class="animal-card-arrow" aria-hidden="true">→</span>
+              <span class="animal-card-arrow" aria-hidden="true">
+                <svg viewBox="0 0 64 64" focusable="false">
+                  <path d="M10 32h40M37 18l14 14-14 14" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </span>
             </div>
           </button>
         `).join("")}
@@ -1031,6 +1226,7 @@ function renderCategory(category) {
   app.querySelectorAll("[data-animal]").forEach((button) => {
     button.addEventListener("click", () => navigate(`#animal/${button.dataset.animal}`));
   });
+  updateGlobalAudioControls();
   focusPageHeading();
 }
 
@@ -1051,6 +1247,7 @@ function renderAnimal(animal) {
         <header class="category-hero" style="--category-color:${category.color}">
           <div class="category-hero-copy">
             <h1>${animal.name}</h1>
+            ${audioControlsMarkup("navigation")}
           </div>
         </header>
         <button class="category-back-button category-home-button" type="button" data-go-home aria-label="Volver al inicio">
@@ -1097,6 +1294,7 @@ function renderAnimal(animal) {
   app.querySelector('[data-action="food"]').addEventListener("click", () => openFoodModal(animal));
   app.querySelector('[data-action="puzzle"]').addEventListener("click", () => openPuzzleModal(animal));
   app.querySelector('[data-action="sound"]').addEventListener("click", () => toggleAnimalSound(animal));
+  updateGlobalAudioControls();
   if (animal.narration) {
     playNarrationSequence([animal.narration.entry]);
   }
@@ -1117,9 +1315,14 @@ function toggleAnimalSound(animal) {
     animalAudio.src = animal.audio;
     activeAudioId = animal.id;
   }
-  animalAudio.play().then(updateSoundButtons).catch(() => {
+  animalAudio.play().then(() => {
+    lastAudioRequest = { type: "animal", src: animal.audio, animalId: animal.id };
+    updateSoundButtons();
+    updateGlobalAudioControls();
+  }).catch(() => {
     activeAudioId = null;
     updateSoundButtons();
+    updateGlobalAudioControls();
     showToast("No pudimos reproducir este sonido.");
   });
 }
@@ -1146,6 +1349,8 @@ function openModal(html, onReady) {
   pauseAnimalAudio();
   lastFocusedElement = document.activeElement;
   modalContent.innerHTML = html;
+  modalAudioToolbar.innerHTML = audioControlsMarkup("modal");
+  updateGlobalAudioControls();
   modal.hidden = false;
   document.body.classList.add("modal-open");
   modalPanel.scrollTop = 0;
@@ -1158,11 +1363,21 @@ function openModal(html, onReady) {
 function closeModal() {
   stopNarration();
   stopPuzzleMusic();
+  stopPuzzleWinSound();
   clearPuzzleCelebration();
   modal.hidden = true;
   modalContent.innerHTML = "";
+  modalAudioToolbar.innerHTML = "";
   document.body.classList.remove("modal-open");
   puzzleState = null;
+
+  const [routeName, animalId] = window.location.hash.slice(1).split("/");
+  const currentAnimal = routeName === "animal" ? animals[animalId] : null;
+  lastAudioRequest = currentAnimal?.narration?.entry
+    ? { type: "narration", sources: [currentAnimal.narration.entry] }
+    : null;
+  updateGlobalAudioControls();
+
   if (lastFocusedElement instanceof HTMLElement && document.contains(lastFocusedElement)) {
     lastFocusedElement.focus();
   }
@@ -1357,6 +1572,7 @@ function placeSelectedPuzzlePiece(slotIndex) {
   const status = modalContent.querySelector("#puzzle-status");
   if (puzzleState.complete) {
     stopPuzzleMusic();
+    playPuzzleWinSound();
     progress.puzzles = uniqueAdd(progress.puzzles, puzzleState.animal.id);
     saveProgress();
     launchPuzzleCelebration();
@@ -1381,6 +1597,7 @@ function returnPuzzlePieceToTray(slotIndex) {
 function resetPuzzle() {
   if (!puzzleState) return;
   clearPuzzleCelebration();
+  stopPuzzleWinSound();
   puzzleState.tray = shufflePieces();
   puzzleState.board = [null, null, null, null];
   puzzleState.selected = null;
@@ -1507,8 +1724,14 @@ document.querySelector("#brand-home").addEventListener("click", () => navigate("
 document.querySelector("#header-home").addEventListener("click", () => navigate("#inicio"));
 
 document.addEventListener("click", (event) => {
+  const control = event.target.closest("[data-audio-control]");
+  if (!control || control.disabled) return;
+  handleAudioControl(control.dataset.audioControl);
+});
+
+document.addEventListener("click", (event) => {
   const button = event.target.closest("button");
-  if (!button || button.disabled || button.matches('[data-action="sound"], [data-action="puzzle"]') || button.hasAttribute("data-narration-click")) return;
+  if (!button || button.disabled || button.matches('[data-action="sound"], [data-action="puzzle"], [data-audio-control], [data-enable-sound]') || button.hasAttribute("data-narration-click")) return;
   playButtonSound();
 });
 
@@ -1545,11 +1768,18 @@ animalAudio.addEventListener("ended", () => {
   updateSoundButtons();
 });
 
+[narrationAudio, animalAudio, buttonSound, puzzleMusic, puzzleWinSound].forEach((audio) => {
+  audio.addEventListener("play", updateGlobalAudioControls);
+  audio.addEventListener("pause", updateGlobalAudioControls);
+  audio.addEventListener("ended", updateGlobalAudioControls);
+});
+
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     stopNarration();
     pauseAnimalAudio();
     puzzleMusic.pause();
+    puzzleWinSound.pause();
   } else if (puzzleState && !puzzleState.complete && !modal.hidden) {
     puzzleMusic.play().catch(() => {});
   }
@@ -1568,5 +1798,6 @@ document.addEventListener("error", (event) => {
 
 window.addEventListener("hashchange", renderRoute);
 
+applyMasterVolume();
 if (!window.location.hash) history.replaceState(null, "", "#inicio");
 renderRoute();
