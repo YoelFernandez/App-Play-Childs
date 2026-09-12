@@ -315,7 +315,7 @@ const animals = {
       ["Vicuña", "ChatGPT Image 23 jul 2026, 08_58_32 p.m. 1.png"],
       ["Venado", "ChatGPT Image 23 jul 2026, 08_58_32 p.m. 2.png"],
       ["Peces", "ChatGPT Image 23 jul 2026, 08_58_32 p.m. 3.png"],
-      ["Llamas y alpacas", "ChatGPT Image 23 jul 2026, 08_58_32 p.m..png"],
+      ["Llamas y alpacas", "llamas_y_alpacas.png"],
       ["Aves", "ChatGPT Image 23 jul 2026, 09_03_16 p.m.5.png"],
     ].map(([name, file]) => ({ name, image: `${INSUMOS}/2AVES/CÓNDOR/Imagen de comida/${file}` })),
   },
@@ -352,10 +352,13 @@ const animals = {
     intro: "El cocodrilo es grande, fuerte y nada muy bien. Puede esconder casi todo su cuerpo bajo el agua.",
     habitatText: "Los cocodrilos viven en ríos, lagos y pantanos de lugares cálidos.",
     foodText: "Los cocodrilos comen peces, aves, cangrejos, tortugas y otros animales.",
-    foods: makeFoods(
-      `${INSUMOS}/3REPTILES Y ANFIBIOS/COCODRILO`,
-      ["Peces", "Aves", "Cangrejos", "Tortugas", "Otros animales"],
-    ),
+    foods: [
+      ["Peces", `${INSUMOS}/3REPTILES Y ANFIBIOS/COCODRILO/COMIDA/alimento_04.png`],
+      ["Aves", `${INSUMOS}/2AVES/CÓNDOR/Imagen de comida/ChatGPT Image 23 jul 2026, 09_03_16 p.m.5.png`],
+      ["Cangrejos", `${INSUMOS}/3REPTILES Y ANFIBIOS/COCODRILO/COMIDA/alimento_05.png`],
+      ["Tortugas", `${INSUMOS}/3REPTILES Y ANFIBIOS/TORTUGA/tortuga.png`],
+      ["Otros animales", `${INSUMOS}/3REPTILES Y ANFIBIOS/COCODRILO/COMIDA/alimento_01.png`],
+    ].map(([name, image]) => ({ name, image })),
   },
   rana: {
     id: "rana",
@@ -369,10 +372,13 @@ const animals = {
     intro: "Cuando nace, la rana es un renacuajo. Después le crecen patas y aprende a saltar.",
     habitatText: "Las ranas viven cerca del agua, en charcos, lagunas y ríos.",
     foodText: "Las ranas comen moscas, mosquitos, grillos, gusanos y escarabajos.",
-    foods: makeFoods(
-      `${INSUMOS}/3REPTILES Y ANFIBIOS/RANA`,
-      ["Moscas", "Mosquitos", "Grillos", "Gusanos", "Escarabajos"],
-    ),
+    foods: [
+      ["Moscas", "alimento_03.png"],
+      ["Mosquitos", "mosquito.png"],
+      ["Grillos", "alimento_05.png"],
+      ["Gusanos", "alimento_02.png"],
+      ["Escarabajos", "alimento_04.png"],
+    ].map(([name, file]) => ({ name, image: `${INSUMOS}/3REPTILES Y ANFIBIOS/RANA/COMIDA/${file}` })),
   },
   serpiente: {
     id: "serpiente",
@@ -386,11 +392,13 @@ const animals = {
     intro: "La serpiente no tiene patas. Se mueve por el suelo y usa su lengua para oler.",
     habitatText: "Las serpientes viven en bosques, desiertos, campos y también cerca del agua.",
     foodText: "Las serpientes comen ratones, huevos, ranas, aves y lagartijas.",
-    foods: makeFoods(
-      `${INSUMOS}/3REPTILES Y ANFIBIOS/SERPIENTE`,
-      ["Ratones", "Huevos", "Ranas", "Aves", "Lagartijas"],
-      ["jpg", "jpg", "jpg", "jpg", "png"],
-    ),
+    foods: [
+      ["Ratones", `${INSUMOS}/3REPTILES Y ANFIBIOS/SERPIENTE/COMIDA/alimento_02.jpg`],
+      ["Huevos", `${INSUMOS}/3REPTILES Y ANFIBIOS/SERPIENTE/COMIDA/alimento_05.png`],
+      ["Ranas", `${INSUMOS}/3REPTILES Y ANFIBIOS/SERPIENTE/COMIDA/alimento_03.jpg`],
+      ["Aves", `${INSUMOS}/2AVES/CÓNDOR/Imagen de comida/ChatGPT Image 23 jul 2026, 09_03_16 p.m.5.png`],
+      ["Lagartijas", `${INSUMOS}/3REPTILES Y ANFIBIOS/SERPIENTE/COMIDA/alimento_01.jpg`],
+    ].map(([name, image]) => ({ name, image })),
   },
   tortuga: {
     id: "tortuga",
@@ -404,10 +412,13 @@ const animals = {
     intro: "La tortuga tiene un caparazón duro que protege su cuerpo. Camina despacio.",
     habitatText: "Las tortugas pueden vivir en la tierra, en ríos, lagunas o en el mar.",
     foodText: "Las tortugas comen plantas, frutas, algas, insectos y animalitos del agua.",
-    foods: makeFoods(
-      `${INSUMOS}/3REPTILES Y ANFIBIOS/TORTUGA`,
-      ["Plantas", "Frutas", "Algas", "Insectos", "Animalitos del agua"],
-    ),
+    foods: [
+      ["Plantas", `${INSUMOS}/3REPTILES Y ANFIBIOS/TORTUGA/COMIDA/alimento_01.png`],
+      ["Frutas", `${INSUMOS}/1ANIMALES TERRESTRES/ELEFANTE/COMIDA/alimento_03.jpg`],
+      ["Algas", `${INSUMOS}/3REPTILES Y ANFIBIOS/TORTUGA/COMIDA/alimento_02.png`],
+      ["Insectos", `${INSUMOS}/3REPTILES Y ANFIBIOS/TORTUGA/COMIDA/alimento_03.png`],
+      ["Animalitos del agua", `${INSUMOS}/3REPTILES Y ANFIBIOS/TORTUGA/COMIDA/alimento_05.png`],
+    ].map(([name, image]) => ({ name, image })),
   },
   abeja: {
     id: "abeja",
@@ -421,10 +432,13 @@ const animals = {
     intro: "La abeja vuela de flor en flor. Al hacerlo, ayuda a que nazcan nuevas plantas.",
     habitatText: "Las abejas viven cerca de muchas flores, en jardines, campos y bosques. Sus casas se llaman colmenas.",
     foodText: "Las abejas comen néctar, polen, partes de flores y miel. También toman agua.",
-    foods: makeFoods(
-      `${INSUMOS}/4INSECTOS/ABEJA`,
-      ["Néctar", "Polen", "Flores", "Miel", "Agua"],
-    ),
+    foods: [
+      ["Néctar", `${INSUMOS}/4INSECTOS/ABEJA/COMIDA/alimento_01.png`],
+      ["Polen", `${INSUMOS}/4INSECTOS/ABEJA/COMIDA/alimento_02.png`],
+      ["Flores", `${INSUMOS}/4INSECTOS/ABEJA/COMIDA/alimento_04.png`],
+      ["Miel", `${INSUMOS}/4INSECTOS/ABEJA/COMIDA/alimento_03.png`],
+      ["Agua", `${INSUMOS}/4INSECTOS/HORMIGA/COMIDA/alimento_04.png`],
+    ].map(([name, image]) => ({ name, image })),
   },
   arana: {
     id: "arana",
@@ -438,10 +452,13 @@ const animals = {
     intro: "La araña tiene ocho patas. Muchas pueden hacer redes de seda.",
     habitatText: "Las arañas viven en jardines, bosques y rincones tranquilos.",
     foodText: "Las arañas comen moscas, mosquitos, polillas, grillos e insectos.",
-    foods: makeFoods(
-      `${INSUMOS}/4INSECTOS/ARAÑA`,
-      ["Moscas", "Mosquitos", "Polillas", "Grillos", "Insectos"],
-    ),
+    foods: [
+      ["Moscas", "alimento_04.png"],
+      ["Mosquitos", "alimento_05.png"],
+      ["Polillas", "alimento_01.png"],
+      ["Grillos", "alimento_02.png"],
+      ["Insectos", "alimento_03.png"],
+    ].map(([name, file]) => ({ name, image: `${INSUMOS}/4INSECTOS/ARAÑA/COMIDA/${file}` })),
   },
   hormiga: {
     id: "hormiga",
@@ -455,10 +472,13 @@ const animals = {
     intro: "La hormiga es pequeña y muy fuerte. Trabaja en equipo con otras hormigas.",
     habitatText: "Las hormigas viven en casas bajo tierra llamadas hormigueros.",
     foodText: "Las hormigas comen semillas, frutas, néctar, hongos e insectos.",
-    foods: makeFoods(
-      `${INSUMOS}/4INSECTOS/HORMIGA`,
-      ["Semillas", "Frutas", "Néctar", "Hongos", "Insectos"],
-    ),
+    foods: [
+      ["Semillas", "alimento_02.png"],
+      ["Frutas", "alimento_03.png"],
+      ["Néctar", "alimento_01.png"],
+      ["Hongos", "hongos.png"],
+      ["Insectos", "alimento_05.png"],
+    ].map(([name, file]) => ({ name, image: `${INSUMOS}/4INSECTOS/HORMIGA/COMIDA/${file}` })),
   },
   mariposa: {
     id: "mariposa",
@@ -472,11 +492,13 @@ const animals = {
     intro: "La mariposa tiene alas de muchos colores. Antes de volar, fue una oruga.",
     habitatText: "Las mariposas viven en jardines, campos y bosques donde hay flores.",
     foodText: "Las mariposas toman néctar, jugo de frutas, savia, jugo de flores y agua.",
-    foods: makeFoods(
-      `${INSUMOS}/4INSECTOS/MARIPOSA`,
-      ["Néctar", "Fruta", "Savia", "Flores", "Agua"],
-      ["jpg", "jpg", "webp", "jpg", "webp"],
-    ),
+    foods: [
+      ["Néctar", "alimento_01.jpg"],
+      ["Fruta", "alimento_04.jpg"],
+      ["Savia", "alimento_05.webp"],
+      ["Flores", "alimento_03.webp"],
+      ["Agua", "alimento_02.jpg"],
+    ].map(([name, file]) => ({ name, image: `${INSUMOS}/4INSECTOS/MARIPOSA/COMIDA/${file}` })),
   },
   ballena_azul: {
     id: "ballena_azul",
@@ -576,10 +598,13 @@ const animals = {
     intro: "El castor tiene dientes fuertes. Utiliza ramas y barro para construir su casa en el agua.",
     habitatText: "Los castores viven junto a ríos y lagos, cerca de muchos árboles.",
     foodText: "Los castores comen corteza, ramas, hojas, raíces y plantas del agua.",
-    foods: makeFoods(
-      `${INSUMOS}/6AGUA DULCE/CASTOR`,
-      ["Corteza", "Ramas", "Hojas", "Raíces", "Plantas del agua"],
-    ),
+    foods: [
+      ["Corteza", `${INSUMOS}/6AGUA DULCE/CASTOR/COMIDA/alimento_01.png`],
+      ["Ramas", `${INSUMOS}/6AGUA DULCE/CASTOR/COMIDA/alimento_03.png`],
+      ["Hojas", `${INSUMOS}/6AGUA DULCE/CASTOR/COMIDA/alimento_04.png`],
+      ["Raíces", `${INSUMOS}/1ANIMALES TERRESTRES/ELEFANTE/COMIDA/alimento_05.png`],
+      ["Plantas del agua", `${INSUMOS}/6AGUA DULCE/CASTOR/COMIDA/alimento_02.png`],
+    ].map(([name, image]) => ({ name, image })),
   },
   nutria: {
     id: "nutria",
@@ -593,11 +618,12 @@ const animals = {
     intro: "La nutria nada y juega muy bien. Su pelo grueso la mantiene caliente.",
     habitatText: "Las nutrias viven en ríos y lagos, en lugares con mucha agua y plantas.",
     foodText: "Las nutrias comen peces, cangrejos, caracoles y animales del agua.",
-    foods: makeFoods(
-      `${INSUMOS}/6AGUA DULCE/NUTRIA`,
-      ["Peces", "Cangrejos", "Caracoles", "Animales del agua"],
-      ["jpg", "jpg", "jpg", "png"],
-    ),
+    foods: [
+      ["Peces", `${INSUMOS}/6AGUA DULCE/NUTRIA/COMIDA/alimento_01.jpg`],
+      ["Cangrejos", `${INSUMOS}/6AGUA DULCE/NUTRIA/COMIDA/alimento_03.jpg`],
+      ["Caracoles", `${INSUMOS}/5ACUATICOS Y MARINOS/PULPO/COMIDA/alimento_01.png`],
+      ["Animales del agua", `${INSUMOS}/6AGUA DULCE/NUTRIA/COMIDA/alimento_02.jpg`],
+    ].map(([name, image]) => ({ name, image })),
   },
   salmon: {
     id: "salmon",
@@ -611,10 +637,13 @@ const animals = {
     intro: "El salmón es un pez fuerte. Puede nadar contra la corriente y saltar sobre el agua.",
     habitatText: "Los salmones viven una parte de su vida en ríos fríos y otra parte en el mar.",
     foodText: "Los salmones comen insectos, camarones, larvas, peces y animalitos del agua.",
-    foods: makeFoods(
-      `${INSUMOS}/6AGUA DULCE/SALMON`,
-      ["Insectos", "Camarones", "Larvas", "Peces", "Animalitos del agua"],
-    ),
+    foods: [
+      ["Insectos", "alimento_02.png"],
+      ["Camarones", "alimento_04.png"],
+      ["Larvas", "alimento_01.png"],
+      ["Peces", "alimento_03.png"],
+      ["Animalitos del agua", "alimento_05.png"],
+    ].map(([name, file]) => ({ name, image: `${INSUMOS}/6AGUA DULCE/SALMON/COMIDA/${file}` })),
   },
   trucha: {
     id: "trucha",
@@ -628,10 +657,13 @@ const animals = {
     intro: "La trucha es un pez rápido y ágil. Su cuerpo tiene pequeñas manchas.",
     habitatText: "Las truchas viven en ríos, arroyos y lagos con agua fría y limpia.",
     foodText: "Las truchas comen insectos, larvas, gusanos, camarones y peces.",
-    foods: makeFoods(
-      `${INSUMOS}/6AGUA DULCE/TRUCHA`,
-      ["Insectos", "Larvas", "Gusanos", "Camarones", "Peces"],
-    ),
+    foods: [
+      ["Insectos", `${INSUMOS}/6AGUA DULCE/SALMON/COMIDA/alimento_02.png`],
+      ["Larvas", `${INSUMOS}/6AGUA DULCE/TRUCHA/COMIDA/alimento_01.png`],
+      ["Gusanos", `${INSUMOS}/6AGUA DULCE/TRUCHA/COMIDA/alimento_05.png`],
+      ["Camarones", `${INSUMOS}/6AGUA DULCE/TRUCHA/COMIDA/alimento_02.png`],
+      ["Peces", `${INSUMOS}/6AGUA DULCE/TRUCHA/COMIDA/alimento_03.png`],
+    ].map(([name, image]) => ({ name, image })),
   },
 };
 
