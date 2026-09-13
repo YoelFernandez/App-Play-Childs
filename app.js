@@ -496,8 +496,8 @@ const animals = {
       ["Néctar", "alimento_01.jpg"],
       ["Fruta", "alimento_04.jpg"],
       ["Savia", "alimento_05.webp"],
-      ["Flores", "alimento_03.webp"],
-      ["Agua", "alimento_02.jpg"],
+      ["Jugo de flores", "jugo_de_flores.png"],
+      ["Agua", "agua.png"],
     ].map(([name, file]) => ({ name, image: `${INSUMOS}/4INSECTOS/MARIPOSA/COMIDA/${file}` })),
   },
   ballena_azul: {
@@ -642,7 +642,7 @@ const animals = {
       ["Camarones", "alimento_04.png"],
       ["Larvas", "alimento_01.png"],
       ["Peces", "alimento_03.png"],
-      ["Animalitos del agua", "alimento_05.png"],
+      ["Animalitos del agua", "animalitos_del_agua.png"],
     ].map(([name, file]) => ({ name, image: `${INSUMOS}/6AGUA DULCE/SALMON/COMIDA/${file}` })),
   },
   trucha: {
